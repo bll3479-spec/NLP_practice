@@ -43,8 +43,6 @@ def build_vocab(df, min_freq=2):
     return vocab
 
 
-
-
 def preprocessing(data_path = 'SMSSpamCollection'):
     df = pd.read_csv(data_path, sep='\t', header = None, names =['label', 'text'])
     #print(df. head())
@@ -56,32 +54,124 @@ def preprocessing(data_path = 'SMSSpamCollection'):
     vocab = build_vocab(df['text'])
     #print(vocab)
 
-#훈련용 클래스 생성: 자연어 모델을 위한 커스텀 데이터셋 만들긴
+    dataset = SpamDataset(df, vocab=vocab, max_len=MAX_LEN)
+    n_total = len(dataset)
+    n_train = int(n_total * 0.7)
+    n_valid = int(n_total * 0.15)
+    n_test = n_total - n_train - n_valid
+
+    train_set, valid_set, test_set = random_split(dataset, [n_train, n_valid, n_test])
+
+    batch_size = 32
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_set, batch_size=batch_size)
+    test_loader = DataLoader(test_set, batch_size=batch_size)
+    return train_loader, valid_loader, test_loader
+
+
+#훈련용 클래스 생성: 자연어 모델을 위한 커스텀 데이터셋 만들기
 from torch.utils.data import DataLoader, Dataset, random_split
 import torch
 class SpamDataset(Dataset):
-    def __init__(self, df, vocab):
+    def __init__(self, df, vocab, max_len):
         #데이터 + 라벨 필요
         #text의 vocab기반 정수 전환
         self.texts = df['text'].tolist()
         #labels의 tensor 전환 필요. dtype=int64
         self.labels = torch.tensor(df['label'].tolist(), dtype = torch.long)
         self.vocab = vocab
+        self.max_len = MAX_LEN
 
         #MAX_LEN: 최대 문장 길이를 알아야 padding 가능
     def _text_to_tensor(self, text, vocab, max_len = MAX_LEN):
-        sample = [vocab.get(t) for t in tokenize(text)]
+        # text를 tokenize -> t, t를 vocab 딕셔너리에서 get(키) -> 값으로 부름. get(2, 1)의 경우 1은 unk로 보내주세요(디폴트 설정)
+        sample = [vocab.get(t, 1) for t in tokenize(text)]
 
+        #길이 세팅. 샘플의 길이가 max_len을 넘으면 걍 자르는 것.(max_len: 얻은 데이터의 평균 길이로 정하기)
         if len(sample) >= max_len:
             sample = sample[:max_len]
+        #패딩: 최대 길이에서 지금 샘플 길이를 뺀 뒤, 최대 길이 맞추도록 0을 더하는 것
         else:
-            sample +=[0] * (max_len)
+            sample +=[0] * (max_len - len(sample))
+
+        return torch.tensor(sample, dtype = torch.long)
 
     def __len__(self):
-
+        return len(self.labels)
+    
     def __getitem__(self, index):
+        text = self._text_to_tensor(self.texts[index], self.vocab, self.max_len)
+        label = self.labels[index]
+        return text, label
 
+def train(model, train_loader, valid_loader, criterion, optimizer,
+          num_epochs, device, model_name='Model'):
+    model.to(device)
+    history = {'train_loss': [], 'train_acc': [], 'valid_acc': []}
+    best_valid_acc = 0.0
 
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss, correct, total = 0.0, 0, 0
+
+        for X_batch, y_batch in train_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+
+            output = model(X_batch)
+            loss   = criterion(output, y_batch)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            _, pred = torch.max(output, 1)
+            correct += (pred == y_batch).sum().item()
+            total   += y_batch.size(0)
+
+        train_loss = running_loss / len(train_loader)
+        train_acc  = correct / total * 100
+
+        model.eval()
+        v_correct, v_total = 0, 0
+        with torch.no_grad():
+            for X_batch, y_batch in valid_loader:
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+                _, pred = torch.max(model(X_batch), 1)
+                v_correct += (pred == y_batch).sum().item()
+                v_total   += y_batch.size(0)
+        valid_acc = v_correct / v_total * 100
+
+        history['train_loss'].append(train_loss)
+        history['train_acc'].append(train_acc)
+        history['valid_acc'].append(valid_acc)
+
+        if valid_acc > best_valid_acc:
+            best_valid_acc = valid_acc
+
+        if (epoch + 1) % 2 == 0:
+            print(f'[{model_name}] Epoch {epoch+1:2d}/{num_epochs} | '
+                  f'loss: {train_loss:.4f} | train: {train_acc:.2f}% | valid: {valid_acc:.2f}%')
+
+    print(f'[{model_name}] 최고 검증 정확도: {best_valid_acc:.2f}%\n')
+    return history
+
+def evaluate(model, test_loader, device, model_name='Model'):
+    model.eval()
+    all_preds, all_labels = [], []
+
+    with torch.no_grad():
+        for X_batch, y_batch in test_loader:
+            _, pred = torch.max(model(X_batch.to(device)), 1)
+            all_preds.extend(pred.cpu().numpy())
+            all_labels.extend(y_batch.numpy())
+    return all_labels, all_preds
 
 if __name__ == '__main__':
-    preprocessing()
+    train_loader, valid_loader, test_loader = preprocessing()
+
+    # x_train, y_train = next(iter(train_loader))
+    # print(x_train.shape)
+    # print(y_train.shape)
+    # print(x_train[0])
+    # print(y_train[0])
