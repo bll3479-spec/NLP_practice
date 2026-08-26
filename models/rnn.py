@@ -4,7 +4,7 @@ import torch.nn as nn
 PAD_IDX = 0
 
 class SpamRNN(nn.Module):
-    def __init__(self, vocab_size, embed_size = 64, hidden_size = 128, num_layers = 3, 
+    def __init__(self, vocab_size, embed_size = 128, hidden_size = 256, num_layers = 5, 
                  dropout = 0.3, num_classes = 2):
         super().__init__()
         #nn.Embedding (vocab_size, embed_size): input 개수, output 개수;

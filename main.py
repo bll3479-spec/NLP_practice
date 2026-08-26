@@ -179,6 +179,20 @@ def predict(model, text, vocab, device):
 
 
 
+#0826복습문제: LSTM 클래스 생성
+class SpamLSTM(nn.Module):
+    def __init__(self):
+        self.embedding
+        self.lstm
+        self.dropout
+        self.fc
+
+    def forward (self, x):
+        embedding = self.embedding(x)
+        out, _ = self.lstm(embedding)
+        last = out[:, -1, :]
+        return self.fc(self.dropout(last))
+
 from models.rnn import SpamRNN
 import torch.nn as nn
 import torch.optim as optim
@@ -196,7 +210,7 @@ if __name__ == '__main__':
     model = SpamRNN(vocab_size=vocab_size)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters())
-    num_epochs = 1 
+    num_epochs = 30
 
     train(model, train_loader, valid_loader, criterion, optimizer,
           num_epochs, device, model_name='Model')
