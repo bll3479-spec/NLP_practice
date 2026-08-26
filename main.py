@@ -160,6 +160,25 @@ def evaluate(model, test_loader, device, model_name='Model'):
             all_labels.extend(y_batch.numpy())
     return all_labels, all_preds
 
+def text_to_tensor(text, vocab, max_len=MAX_LEN):
+    sample = [vocab.get(t, 1) for t in tokenize(text)]
+
+    if len(sample) >= max_len:
+        sample = sample[:max_len]
+    else:
+        sample += [0] * (max_len - len(sample))
+    return torch.tensor(sample, dtype=torch.long)
+
+def predict(model, text, vocab, device):
+    model.eval()
+    tensor = text_to_tensor(text, vocab, 50).unsqueeze(0).to(device)
+    with torch.no_grad():
+        prob = torch. softmax(model(tensor), dim=1)[0]
+    label = 'SPAM' if prob[1] > 0.5 else 'HAM'
+    print(f'입력 텍스트 {text} \n 판정 결과 {label} \n 신뢰도 {prob[1] * 100:.2f}%')
+
+
+
 from models.rnn import SpamRNN
 import torch.nn as nn
 import torch.optim as optim
@@ -183,6 +202,10 @@ if __name__ == '__main__':
           num_epochs, device, model_name='Model')
     #3. evaluate에 입력
     evaluate(model, test_loader, device, model_name='Model')
+    #한 줄의 문장으로 추론
+    text = input('검증할 문장을 넣어주세요 : \n')
+    predict(model, text, vocab, device)
+
     
     
     # x_train, y_train = next(iter(train_loader))
