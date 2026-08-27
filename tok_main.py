@@ -49,6 +49,12 @@ if __name__ == '__main__':
     #AutoTokenizer.from_pretrained -> 사전 학습된 토크나이저 모델을 사용 가능
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
+    #0. 전체 데이터셋인 df 가져옴
+    df = pd.read_csv('SMSSpamCollection', sep = '\t', header = None, names = ['labels','text'])
+    df['label'] = (df['label'] == 'spam').astype(int)       #데이터프레임 열 중 label 열을 0(정상), 1(스팸)으로 분류
+
+    train_idx, valid_idx, test_idx =make_splits(len(df)) 
+
     #1. 전통적인 tokenizer를 거친 데이터셋을 갖고 와 lstm으로 훈련
 
     #2. 허깅페이스 tokenizer를 거친 데이터셋을 갖고 와 lstm으로 훈련
