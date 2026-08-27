@@ -41,6 +41,7 @@ class SpamRNN(nn.Module):
 #https://docs.pytorch.org/docs/2.13/generated/torch.nn.LSTM.html
 class SpamLSTM(nn.Module):
     def __init__(self, vocab_size, embed_dim=128, hidden_size=256, dropout=0.3, num_classes=2):
+        super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.lstm = nn.LSTM(input_size=embed_dim, hidden_size=hidden_size, num_layers=5, batch_first = True, dropout = dropout)
         self.dropout = nn.Dropout(dropout)

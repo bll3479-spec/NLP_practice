@@ -4,7 +4,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 import matplotlib as mpl
 mpl.rcParams['font.family'] = 'Malgun Gothic'
-mpl.rcParams['axes.unicode_minus'] = False
+mpl.rcParams['axes.unicode_minus'] = False      #기호 깨짐 방지
 
 def plot_comparison(histories, names):
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
