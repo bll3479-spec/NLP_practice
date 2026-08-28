@@ -7,6 +7,7 @@ import zipfile, gzip
 #인터넷을 오고 가는 요청 신호의 자료형 고정 -> fastAPI, pydantic
 from typing import Dict, List, Optional, Tuple
 
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -151,17 +152,106 @@ def embed_random(words:List[str], embed_dim:int=64) -> Optional[np.ndarray]:
         vectors = layer(ids).numpy()
     return vectors
 
-def embed_glove():
-    pass
+#glove 임베딩 모델에서 내가 사전 정의한 words에 해당하는 벡터 값 추출
+def embed_glove(words:List[str], path:str) -> Optional[np.ndarray]:
 
-def embed_fasttext():
-    pass
+    if not os.path.exists(path):
+        print(f'{path}에 파일이 존재하지 않음')
+    #glove =  전체 단어에 대한 100개 차원의 사전 딕셔너리.
+    glove = {}
+    with open(path, encoding ='utf-8') as f:
+        for line in f:
+            parts = line.rstrip().split(' ')
+            glove[parts[0]] = np.array(parts[1:], dtype = np.float32)
 
-def embed_bert():
-    pass
+    #예외처리
+    missing = [w for w in words if w not in glove]
+    if missing:
+        print(f'{w} 가 glove에 없습니다')
+    #100dimension -> 몇 열로 이루어져 있는지
+    dim = next(iter(glove.values())).shape[0]
+    #딕셔너리.get(키, 디폴트)
+    vectors = np.array([glove.get(w, np.zeros(dim)) for w in words])
+    return vectors
+#파일 읽어오기 -> 줄 단위로 자르고 -> 딕셔너리 만들고 -> 단어를 딕셔너리에서 찾고 -> return
+def embed_fasttext(words:List[str], path:str) -> Optional[np.ndarray]:
+    if not os.path.exists(path):
+        print(f'{path} 경로가 존재하지 않습니다.')
 
+    fasttext = {}
+    with open(path, encoding='utf-8') as f:
+        n_words, dim = map(int, f.readline().split())
+        for i, line in enumerate(f):
+            if i >= 200000:
+                break
+            parts = line.rstrip().split(' ')
+            word = parts[0]
+            vec = np.array(parts[1:], dtype=np.float32)
+            if vec.shape[0] == dim:
+                fasttext[word] = vec
+
+    missing = [w for w in words if w not in fasttext]
+    if missing:
+        print(f'{missing}이 fasttext 안에 존재하지 않음')
+
+    vectors = np.array([fasttext.get(w, np.zeros(dim)) for w in words])
+    return vectors
+    
+def embed_bert(words:List[str]) -> Optional[np.ndarray]:
+
+    from transformers import AutoTokenizer, BertModel
+
+    #Glove,Fastext의 파일 읽어 가져오기와 동일
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    bert = BertModel.from_pretrained('bert-base-uncased')
+    word_embed = bert.embeddings.word_embeddings
+
+    #words에 맞는 벡터를 임베딩 뭉치에서 추출
+    vectors = []
+    for word in words:
+        token_ids = tokenizer.encode(word, add_special_tockens =False)
+
+        #버트 모델이 갖고 있지 않은 단어 뭉치인 경우
+        if not token_ids:
+            #np.zeros -> 내가 알지 못하는 단어의 벡터는 임베딩 모델 존재하지 않음
+            # 빈 값(null) 만들지 않기 위해 임시 0으로 채워진 값을 return. (버트 임베딩 모델의 차원의 수)
+            vectors.append(np.zeros(768))
+            continue
+        with torch.no_grad():
+            ids_tensor = torch.tensor(token_ids)
+            embed = word_embed(ids_tensor).mean(0).numpy()
+
+        vectors.append(embed)
+    return np.array(vectors)
+
+def decomposition_3d(vector:np.ndarray) -> np.ndarray:
+    #pca 이용, 3차원으로 차원축소
+    from sklearn.decomposition import PCA
+    #정규화: 각 벡터별로 데이터의 범위가 다를 수 있으니
+    #norm = 각 벡터를 줄 별로(axis=1) 계산해서 각 단어 줄에 대한 L2 norm 구하기
+    norm = np.linalg.norm(vector, axis=1, keepdims=True) + 1e-9     #가장 작은 수를 붙여서 결과값을 0으로 만들지 않기 위함
+    vector = vector/norm
+
+    pca = PCA(n_components=3)
+    result = pca.fit_transform(vector)
+
+    #3차원으로 잘 반환했는지?
+    explain = pca. explained_variance_ * 100
+    print(f'PCA가 이 모델을 {explain.sum():.2f}% 설명 가능함')
+    
+    return result
 
 if __name__ == '__main__':
     g_path = download_glove(dim=100, save_dir='.')
     f_path = download_fasttext(save_dir='.')
 
+    #각 방법의 embedding 추출
+    word = ALL_WORDS
+    #1. random
+    random_emb = embed_random(word)
+    #2. Glove
+    glove_emb = embed_glove(word,r'C:\Users\user\Desktop\Git\NLP_practice\models\glove.6B.100d.txt' )
+    #3. FastText
+    ft_emb = embed_fasttext(word, r'C:\Users\user\Desktop\Git\NLP_practice\models\cc.en.300.vec')
+    #4. BERT
+    bert_emb = embed_bert(word)
