@@ -241,6 +241,56 @@ def decomposition_3d(vector:np.ndarray) -> np.ndarray:
     
     return result
 
+def plot_3d_matplotlib(
+    all_results: List[Tuple[str, np.ndarray]],
+    words: List[str],
+    save_png: str = 'embed_compare_3d.png',
+):
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+    mpl.rcParams['font.family']       = 'Malgun Gothic'
+    mpl.rcParams['axes.unicode_minus'] = False
+
+    n_methods = len(all_results)
+    n_cols    = min(2, n_methods)
+    n_rows    = (n_methods + n_cols - 1) // n_cols
+
+    fig = plt.figure(figsize=(8 * n_cols, 7 * n_rows))
+
+    for idx, (method_name, coords) in enumerate(all_results):
+        ax = fig.add_subplot(n_rows, n_cols, idx + 1, projection='3d')
+        ax.set_title(method_name, fontsize=13, pad=10)
+
+        for i, word in enumerate(words):
+            group = WORD_TO_GROUP[word]
+            color = GROUP_COLORS[group]
+            ax.scatter(coords[i, 0], coords[i, 1], coords[i, 2],
+                       color=color, s=60, zorder=5)
+            ax.text(coords[i, 0], coords[i, 1], coords[i, 2],
+                    f' {word}', fontsize=8, color=color)
+
+        ax.set_xlabel('PC 1', fontsize=9)
+        ax.set_ylabel('PC 2', fontsize=9)
+        ax.set_zlabel('PC 3', fontsize=9)
+
+    # 범례 (그룹 색상)
+    from matplotlib.lines import Line2D
+    handles = [
+        Line2D([0], [0], marker='o', color='w',
+               markerfacecolor=c, markersize=9, label=g)
+        for g, c in GROUP_COLORS.items()
+    ]
+    fig.legend(handles=handles, title='단어 그룹', loc='lower center',
+               ncol=len(GROUP_COLORS), fontsize=10, bbox_to_anchor=(0.5, 0.01))
+
+    plt.suptitle('임베딩 방식별 단어 분포 비교 (PCA 3D)', fontsize=15, y=1.01)
+    plt.tight_layout()
+    plt.savefig(save_png, dpi=120, bbox_inches='tight')
+    print(f'정적 PNG 저장: {save_png}')
+    plt.show()
+
 if __name__ == '__main__':
     g_path = download_glove(dim=100, save_dir='.')
     f_path = download_fasttext(save_dir='.')
@@ -267,3 +317,5 @@ if __name__ == '__main__':
         print(f'PCA ... {name}모델 임베딩 PCA 진행')
         coord = decomposition_3d(embed)
         result_3d.append((name,coord))
+    #실제 시각화 비교 수행
+    plot_3d_matplotlib(result_3d, word, save_png='./embedding_comparion.png')
