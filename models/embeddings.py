@@ -257,7 +257,13 @@ if __name__ == '__main__':
     #4. BERT
     bert_emb = embed_bert(word)
 
-    raw_embeddings.append(random_emb)
-    raw_embeddings.append(glove_emb)
-    raw_embeddings.append(ft_emb)
-    raw_embeddings.append(bert_emb)
+    raw_embeddings.append(('random', random_emb))
+    raw_embeddings.append(('glove', glove_emb))
+    raw_embeddings.append(('fast', ft_emb))
+    raw_embeddings.append(('BERT', bert_emb))
+
+    result_3d = []
+    for name, embed in raw_embeddings:
+        print(f'PCA ... {name}모델 임베딩 PCA 진행')
+        coord = decomposition_3d(embed)
+        result_3d.append((name,coord))
