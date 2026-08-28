@@ -247,6 +247,7 @@ if __name__ == '__main__':
 
     #각 방법의 embedding 추출
     word = ALL_WORDS
+    raw_embeddings = []
     #1. random
     random_emb = embed_random(word)
     #2. Glove
@@ -255,3 +256,8 @@ if __name__ == '__main__':
     ft_emb = embed_fasttext(word, r'C:\Users\user\Desktop\Git\NLP_practice\models\cc.en.300.vec')
     #4. BERT
     bert_emb = embed_bert(word)
+
+    raw_embeddings.append(random_emb)
+    raw_embeddings.append(glove_emb)
+    raw_embeddings.append(ft_emb)
+    raw_embeddings.append(bert_emb)
