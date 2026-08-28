@@ -1,1 +1,4 @@
 *.zip
+*.vec
+*.vec.gz
+*.100d.txt
